@@ -93,14 +93,14 @@ int main(int argc, char** argv) {
 	tcp.ReceiveMessage();
 
 
-	string str;
-	while(getline(cin, str)) {
+	string command;
+	while(getline(cin, command)) {
 		string tmp = "";
-		for(int i = 0; i < str.size(); i ++) {
-			if(str[i] == ' ') {
+		for(int i = 0; i < command.size(); i ++) {
+			if(command[i] == ' ') {
 				break;
 			}
-			tmp += str[i];
+			tmp += command[i];
 		}
 		if(tmp == "exit") {
 			udp.Close();
@@ -109,11 +109,11 @@ int main(int argc, char** argv) {
 		}
 		else if(tmp=="register" || tmp == "game-rule") 
 		{
-			udp.SendMessage(str);
+			udp.SendMessage(command);
 			udp.ReceiveMessage();
 		}
 		else {
-			tcp.SendMessage(str);
+			tcp.SendMessage(command);
 			tcp.ReceiveMessage();
 		}
 	}
