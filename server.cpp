@@ -260,7 +260,7 @@ public:
                 GameRule();
             }
             else
-                uProtocol.SendMessage("Not a valid command.\n");
+                uProtocol.SendMessage("Not a valid command.");
         }
         else if(!players[tcpNum].isInGame){
             if(cmds[0] == "login")
@@ -270,7 +270,7 @@ public:
             else if(cmds[0] == "start-game")
                 StartGame(cmds, tcpNum);
             else
-                masterTCPSocket->SendMessage("Not a valid command.\n", tcpNum);
+                masterTCPSocket->SendMessage("Not a valid command.", tcpNum);
         }
         // In Game
         else{
@@ -285,7 +285,6 @@ public:
 
 private:
     void Register(vector<string> cmds){
-        cout<<"in Register";
         if(cmds.size() != 4) {
 			uProtocol.SendMessage("Usage: register <username> <email> <password>");
 			return;
@@ -349,23 +348,10 @@ private:
 			masterTCPSocket->SendMessage("Usage: start-game <4-digit number>", clientIndex);
 			return;
 		}
-        games[clientIndex].StartGame();
 		masterTCPSocket->SendMessage("Please typing a 4-digit number:", clientIndex);
+        games[clientIndex].StartGame();
 		
-        
         players[clientIndex].isInGame = true;
-
-		// if(comm.size() == 2) {
-		// 	game[ind] = comm[1];
-		// }
-		// else {
-		// 	int t = rand() % 10000;
-		// 	game[ind] = "";
-		// 	for(int i = 1; i < 10000; i *= 10) {
-		// 		game[ind] += (char)('0' + t / i % 10);
-		// 	}
-		// }
-		// cout << game[ind] << '\n';
     }
     void TCP(){
         //set master socket to allow multiple connections
