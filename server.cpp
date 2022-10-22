@@ -40,9 +40,15 @@ public:
     }
     string Guess(string number){
         int Anumber = 0, Bnumber = 0;
+        bool visited[4] = {0};
+        for(int i = 0;i<4;i++)
+            visited[i] = false;
+
         for(int i = 0;i<4;i++){
-            if(targetNumber[i] == number[i])
+            if(targetNumber[i] == number[i]){
+                visited[i] = true;
                 Anumber++;
+            }
         }
         if(Anumber == 4){
             isEnded = true;
@@ -50,11 +56,12 @@ public:
         }
         for(int i = 0 ; i < 4 ; i++){
             for(int j = 0 ; j < 4 ; j++){
-                if(targetNumber[i] == number[j])
+                if(!visited[i] || !visited[j] && targetNumber[i] == number[j]){
+                    visited[i] = visited[j] = true;
                     Bnumber++;
+                }
             }
         }
-        Bnumber -= Anumber;
         guessTime++;
 
         if(guessTime == 5)
