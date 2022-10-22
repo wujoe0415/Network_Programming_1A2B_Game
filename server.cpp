@@ -24,13 +24,19 @@ class Game{
 public:
     Game(){
     }
-    void StartGame(){
-        int random = (rand() % 9000) + 1000;
-        while(!isValidNumber(random))
-            random = (rand() % 9000) + 1000;
-
-        targetNumber = to_string(random);
+    void StartGame(string specificNumber = ""){
+        if(specificNumber == ""){
+            int random = (rand() % 9000) + 1000;
+            while(!isValidNumber(random)){
+                random = (rand() % 9000) + 1000;
+            }
+            targetNumber = to_string(random);
+        }
+        else
+            targetNumber = specificNumber;
+        
         guessTime = 0;
+        isEnded = false;
     }
     string Guess(string number){
         int Anumber = 0, Bnumber = 0;
@@ -38,32 +44,40 @@ public:
             if(targetNumber[i] == number[i])
                 Anumber++;
         }
-        if(Anumber == 4)
-            return "You got the answer!\n";
-
-        for(int i = 0;i<4;i++){
-            for(int j = 0;j<4;j++){
+        if(Anumber == 4){
+            isEnded = true;
+            return "You got the answer!";
+        }
+        for(int i = 0 ; i < 4 ; i++){
+            for(int j = 0 ; j < 4 ; j++){
                 if(targetNumber[i] == number[j])
                     Bnumber++;
             }
         }
         Bnumber -= Anumber;
         guessTime++;
-        if(guessTime == 5)
-            return "You lose the game!\n";
 
-        return to_string(Anumber) + "A" + to_string(Bnumber) + "B\n";
+        if(guessTime == 5)
+            isEnded = true;
+
+        return to_string(Anumber) + "A" + to_string(Bnumber) + "B" + (guessTime == 5 ? "\nYou lose the game!" : "");
+
+        // if(guessTime == 5)
+        //     return "You lose the game!";
     }
+    bool isEnded = false;
 private:
     int guessTime = 0;
     string targetNumber;
     bool isValidNumber(int number){
         int a, b, c, d;
-        a = (number%=10);
-        b = (number%=10);
-        c = (number%=10);
-        d = (number%=10);
-
+        a = (number%10);
+        number /= 10;
+        b = (number%10);
+        number /= 10;
+        c = (number%10);
+        number /= 10;
+        d = (number%10);
         if(a==b || b==c || c==d || d==a)
             return false;
 
@@ -97,7 +111,7 @@ public:
     string ReceiveMessage(){
         len = sizeof(clientAddress);
         int n = recvfrom(udpSockfd, (char*)buffer, 50, MSG_WAITALL, (struct sockaddr*)&clientAddress, (socklen_t*)&len);
-        buffer[n] = '\n';
+        buffer[n] = '\0';
         return buffer;
     }
     void Close(){
@@ -256,9 +270,8 @@ public:
         if(tcpNum == -1){
             if(cmds[0] == "register")
                 Register(cmds);
-            else if(cmds[0] == "game-rule"){
+            else if(cmds[0] == "game-rule")
                 GameRule();
-            }
             else
                 uProtocol.SendMessage("Not a valid command.");
         }
@@ -277,9 +290,12 @@ public:
             string num = cmds[0];
             if(!isValidGuess(num))
                 masterTCPSocket->SendMessage("Your guess should be a 4-digit number.", tcpNum);
-            masterTCPSocket->SendMessage(games[tcpNum].Guess(num), tcpNum);
+            else{
+                masterTCPSocket->SendMessage(games[tcpNum].Guess(num), tcpNum);
+                if(games[tcpNum].isEnded)
+                    players[tcpNum].isInGame = false;
+            }
         }
-            
     }
     int Port;
 
@@ -349,7 +365,8 @@ private:
 			return;
 		}
 		masterTCPSocket->SendMessage("Please typing a 4-digit number:", clientIndex);
-        games[clientIndex].StartGame();
+        games[clientIndex].StartGame(cmds.size() > 1?cmds[1]:"");
+        
 		
         players[clientIndex].isInGame = true;
     }
