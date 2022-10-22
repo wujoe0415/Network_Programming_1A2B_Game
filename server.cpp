@@ -91,10 +91,13 @@ public:
     void SetServerAddress(struct sockaddr_in* sa){
         serverAddress = sa;
     }
-    void SendMessage(string mes){}
+    void SendMessage(string mes){
+        send(udpSockfd, mes.c_str(), mes.size(), 0);
+    }
     string ReceiveMessage(){
         int n = recvfrom(udpSockfd, (char*)buffer, 50, MSG_WAITALL, 0, &len);
         buffer[n] = '\n';
+        puts(buffer);
         return buffer;
     }
     void Close(){
@@ -115,6 +118,8 @@ public:
             perror("Server failed to create UDPsocket");
             exit(EXIT_FAILURE);
         }
+        for(int i = 0; i<MAX_CLIENT + 10;i++)
+            configSockfds[i] = -1;
     }
     void SetServerAddress(struct sockaddr_in* sa){
         serverAddress = sa;
@@ -131,21 +136,29 @@ public:
             exit(0);
         }
     }
-    void Accept(){
-        configSockfd = accept(tcpSockfd, (struct sockaddr*)&clientAddress, (socklen_t*)(sizeof(clientAddress)));
-        if (configSockfd < 0) {
+    int Accept(){
+        int newSocket = accept(tcpSockfd, (struct sockaddr*)0, (socklen_t*)(sizeof(0)));
+        
+        if (newSocket < 0) {
             printf("TCP server accept failed...\n");
             exit(0);
         }
-        else
-            printf("TCP server accept the client...\n");
+        else{
+            for(int i = 0;i< MAX_CLIENT + 10;i++){
+                if(configSockfds[i] == -1){
+                    configSockfds[i] = newSocket;
+                    break;
+                }
+            }       
+        }
+        return newSocket;
     }
-    void SendMessage(string mes){
-        write(configSockfd, mes.c_str(), mes.size());
+    void SendMessage(string mes, int clientSocketfd){
+        write(configSockfds[clientSocketfd], mes.c_str(), mes.size());
     }
-    string ReceiveMessage(){
+    string ReceiveMessage(int clientSocketfd){
         int val;
-        if((val = read(configSockfd, buffer, sizeof(buffer)))==0){
+        if((val = read(configSockfds[clientSocketfd], buffer, sizeof(buffer)))==0){
             getpeername(tcpSockfd, (struct sockaddr*)serverAddress, (socklen_t*)(sizeof(*serverAddress)));
             Close();
         }
@@ -155,13 +168,15 @@ public:
     void Close(){
         close(tcpSockfd);
         tcpSockfd = 0;
-        configSockfd = 0;
+        for(int i = 0;i<MAX_CLIENT + 10 ; i++)
+            configSockfds[i] = -1;
     }
     int tcpSockfd = 0;
-    int configSockfd = 0;
+    // int configSockfd = 0;
+    int configSockfds[MAX_CLIENT + 10] = {0};
 private:
     struct sockaddr_in* serverAddress={0};
-    struct sockaddr_in clientAddress={0};
+    struct sockaddr_in clientAddress;
     char buffer[50]={0};
     socklen_t len = 0;
 };
@@ -179,31 +194,36 @@ public:
         nready = 0;
     };
     void LogicLoop(){
-        FD_ZERO(&rset); //Clear the socket set
-        FD_SET(masterTCPSocket->tcpSockfd, &rset);
-		FD_SET(uProtocol.udpSockfd, &rset);
-
-        int maxfdp1 = uProtocol.udpSockfd;
-        for(int i = 0 ; i < tProtocols.size() ; i++)
-           maxfdp1 = max(tProtocols[i].configSockfd, maxfdp1);
-        maxfdp1 += 1;
-
         while(true){
-            // set listenfd and udpfd in readset
-            for(int i = 0;i < tProtocols.size();i++)
-                FD_SET(tProtocols[i].tcpSockfd, &rset);
 
-            FD_SET(uProtocol.udpSockfd, &rset);
-    
-            nready = select(maxfdp1, &rset, NULL, NULL, NULL);
+            FD_ZERO(&rset); //Clear the socket set
+            FD_SET(masterTCPSocket->tcpSockfd, &rset);
+	    	FD_SET(uProtocol.udpSockfd, &rset);
+
+            // set listenfd and udpfd in readset
+            for(int i = 0;i < MAX_CLIENT;i++){
+                if(masterTCPSocket->configSockfds[i] < 0)
+                    continue;
+                FD_SET(masterTCPSocket->configSockfds[i], &rset);
+            }
+
+            int maxfdp1 = max(masterTCPSocket->tcpSockfd, uProtocol.udpSockfd);
+            for(int i = 0 ; i < MAX_CLIENT ; i++){
+                if(masterTCPSocket->configSockfds[i] < 0)
+                    continue;
+                maxfdp1 = max(masterTCPSocket->configSockfds[i], maxfdp1);
+            }
+            nready = select(maxfdp1 + 1, &rset, NULL, NULL, NULL);
+            
             if(nready < 0)
                 cout << "select error.\n";
+
+            cout<<nready<<endl;
 
             // master TCP socket
             if (FD_ISSET(masterTCPSocket->tcpSockfd, &rset))  
             {  
-                masterTCPSocket->Accept();
-                int newSocket = masterTCPSocket->configSockfd;
+                int newSocket = masterTCPSocket->Accept();
                 
                 cout << "New connection.\n";
                 string welcome_mes = "*****Welcome to Game 1A2B*****";
@@ -213,67 +233,57 @@ public:
                     perror("Failed to send welcome meassage\n");  
                 }  
                 // Add new socket to array of sockets 
-                AddTCPClient(newSocket); 
+                //AddTCPClient(newSocket); 
             }
             // UDP
             if (FD_ISSET(uProtocol.udpSockfd, &rset)) {
+                cout<<"udp";
                 string rcvmes = uProtocol.ReceiveMessage();
                 HandleCommand(rcvmes);
             }
             // TCP
-            for(int i = 0; i< tProtocols.size();i++){
-                if (FD_ISSET(tProtocols[i].tcpSockfd, &rset)) { 
-                    tProtocols[i].Accept();
-                    string rcvmes = tProtocols[i].ReceiveMessage();
+            for(int i = 0; i< MAX_CLIENT;i++){
+                if(masterTCPSocket->configSockfds[i] == -1)
+                    continue;
+                if (FD_ISSET(masterTCPSocket->configSockfds[i], &rset)) {
+                    string rcvmes = masterTCPSocket->ReceiveMessage(i);
                     HandleCommand(rcvmes, i);
-
-                    // string mes;
-                    // getline(cin, mes);
-                    // tProtocols[i].SendMessage(mes);
-                    // close(tProtocols[i].configSockfd);
                 }
             }
         }
     };
     void HandleCommand(string command, int tcpNum = -1){
         vector<string> cmds = SplitCommand(command);
-
+        cout<<tcpNum<<endl;
         if(tcpNum == -1){
-            if(cmds[0] == "register"){
+            if(cmds[0] == "register")
                 Register(cmds);
-            }
-            else if(cmds[0] == "game-rule"){
+            else if(cmds[0] == "game-rule")
                 GameRule();
-            }
             else
                 uProtocol.SendMessage("Not a valid command.\n");
         }
         else if(!players[tcpNum].isInGame){
             if(cmds[0] == "login"){
-                cout<<"logiin\n";
+                Login(cmds, tcpNum);
             }
-            else if(cmds[0] == "logout"){
-                    cout<<"logout\n";
-            }
+            else if(cmds[0] == "logout")
+                Logout(tcpNum);
             else if(cmds[0] == "start-game")
-            {
-                cout<<"start-game\n";
-            }
+                StartGame(cmds, tcpNum);
             else{
-                tProtocols[tcpNum].SendMessage("Not a valid command.\n");
+                masterTCPSocket->SendMessage("Not a valid command.\n", tcpNum);
             }
         }
         // In Game
         else{
             string num = cmds[0];
             if(!isValidGuess(num))
-                tProtocols[tcpNum].SendMessage("Your guess should be a 4-digit number.");
-            tProtocols[tcpNum].SendMessage(games[tcpNum].Guess(num));
+                masterTCPSocket->SendMessage("Your guess should be a 4-digit number.", tcpNum);
+            masterTCPSocket->SendMessage(games[tcpNum].Guess(num), tcpNum);
         }
             
     }
-    UDPProtocol uProtocol;
-    vector<TCPProtocol> tProtocols;
     int Port;
 
 private:
@@ -299,49 +309,50 @@ private:
         uProtocol.SendMessage("1. Each question is a 4-digit secret number.\n2. After each guess, you will get a hint with the following information:\n2.1 The number of \"A\", which are digits in the guess that are in the correct position.\n2.2 The number of \"B\", which are digits in the guess that are in the answer but are in the wrong position.\nThe hint will be formatted as \"xAyB\".\n3. 5 chances for each question.");
     }
     void Login(vector<string> cmds, int clientIndex){
+        
         if(players[clientIndex].name != "") {
-			tProtocols[clientIndex].SendMessage("Please logout first.");
+			masterTCPSocket->SendMessage("Please logout first.", clientIndex);
 			return;
 		}
         if(cmds.size() != 3) {
-			tProtocols[clientIndex].SendMessage("Usage: login <username> <password>");
+			masterTCPSocket->SendMessage("Usage: login <username> <password>", clientIndex);
 			return;
 		}
 		if(user2data.find(cmds[1]) == user2data.end()) {
-			tProtocols[clientIndex].SendMessage("Username not found.");
+			masterTCPSocket->SendMessage("Username not found.", clientIndex);
 			return;
 		}
 		if(user2data[cmds[1]].second != cmds[2]) {
-			tProtocols[clientIndex].SendMessage("Password not correct.");
+			masterTCPSocket->SendMessage("Password not correct.", clientIndex);
 			return;
 		}
-		tProtocols[clientIndex].SendMessage("Welcome, " + cmds[1] + ".");
+        masterTCPSocket->SendMessage("Welcome, " + cmds[1] + ".", clientIndex);
 		players[clientIndex].name = cmds[1];
     }
     void Logout(int clientIndex){
         if(players[clientIndex].name == "") {
-			tProtocols[clientIndex].SendMessage("Please login first.");
+			masterTCPSocket->SendMessage("Please login first.", clientIndex);
 		}
 		else {
-			tProtocols[clientIndex].SendMessage("Bye, " + players[clientIndex].name + ".");
+			masterTCPSocket->SendMessage("Bye, " + players[clientIndex].name + ".", clientIndex);
 			players[clientIndex].Clear();
 		}
     }
     void StartGame(vector<string> cmds, int clientIndex){
         if(players[clientIndex].name == "") {
-			tProtocols[clientIndex].SendMessage("Please login first.");
+			masterTCPSocket->SendMessage("Please login first.", clientIndex);
 			return;
 		}
 		if(cmds.size() > 2) {
-			tProtocols[clientIndex].SendMessage("Usage: start-game <4-digit number>");
+			masterTCPSocket->SendMessage("Usage: start-game <4-digit number>", clientIndex);
 			return;
 		}
 		if(cmds.size() > 1 && !isValidGuess(cmds[1])) {
-			tProtocols[clientIndex].SendMessage("Usage: start-game <4-digit number>");
+			masterTCPSocket->SendMessage("Usage: start-game <4-digit number>", clientIndex);
 			return;
 		}
         games[clientIndex].StartGame();
-		tProtocols[clientIndex].SendMessage("Please typing a 4-digit number:");
+		masterTCPSocket->SendMessage("Please typing a 4-digit number:", clientIndex);
 		
         
         players[clientIndex].isInGame = true;
@@ -371,36 +382,11 @@ private:
         masterTCPSocket->SetServerAddress(&serverAddress);
         masterTCPSocket->Bind();
         masterTCPSocket->Listen();
-        
-        tProtocols;
-        tProtocols.clear();
-
     }
     void UDP(){
         uProtocol;
         uProtocol.SetServerAddress(&serverAddress);
         uProtocol.Bind();       
-    }
-    void AddTCPClient(int newSocket){
-        if(tProtocols.size() >= MAX_CLIENT)
-        {
-            cout << "Acheive Max Client Number.\n";
-            return;
-        }
-
-        TCPProtocol temp;
-        temp.SetServerAddress(&serverAddress);
-        temp.tcpSockfd = newSocket;
-        temp.configSockfd = newSocket;
-
-        for(auto tProtocol : tProtocols){
-            if(tProtocol.configSockfd == 0 && tProtocol.tcpSockfd == 0)
-            {
-                tProtocol = temp;
-                return;
-            }
-        }
-        tProtocols.push_back(temp);
     }
     vector<string> SplitCommand(string cmd){
         vector<string> cmds;
@@ -432,9 +418,11 @@ private:
         }
         return true;
     }
+    
     fd_set rset;
     int nready;
 
+    UDPProtocol uProtocol;
     TCPProtocol* masterTCPSocket;
     struct sockaddr_in serverAddress={0};
     map<string, pair<string, string> > user2data;
@@ -451,6 +439,6 @@ int main(int argc, char** argv) {
     Server* server = new Server(atoi(argv[1]));
 
     server->LogicLoop();
-    cout<<"End Loop\n";
+
     return 0;
 }

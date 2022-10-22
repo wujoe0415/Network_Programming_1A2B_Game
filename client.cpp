@@ -12,11 +12,13 @@ public:
 		TCP_fd = socket(AF_INET, SOCK_STREAM, 0);
 	}
 	void ReceiveMessage() {
+
 		int val = read(TCP_fd, buffer, 1024);
 		buffer[val] = '\0';
 		cout << buffer << '\n';
 	}
 	void SendMessage(string str) {
+		puts(("TCP sendMessage : " + str).c_str());
 		send(TCP_fd, str.c_str(), str.size(), 0);
 
 	}
@@ -25,7 +27,7 @@ public:
 	}
     void Connect(){
         if (connect(TCP_fd, (const sockaddr*)&tcpClientAddress, sizeof(tcpClientAddress)) != 0) {
-            printf("TCP Client fail to connect with the server \n");
+            cout << "TCP Client fail to connect with the server \n";
             exit(0);
         }
     }
@@ -49,6 +51,7 @@ public:
 		}
 	}
 	void SendMessage(string str) {
+		puts(("UDP sendMessage : " + str).c_str());
 		sendto(UDP_fd, str.c_str(), str.size(), 0, (struct sockaddr*)&udpClientAddress, sizeof(udpClientAddress));
 	}
 	void ReceiveMessage() {
@@ -70,7 +73,6 @@ private:
 };
 
 int main(int argc, char** argv) {
-
 	if (argc < 3) {
 		cout << "Please input the port and IP for client side !!\n";
 		return 0;
@@ -86,10 +88,11 @@ int main(int argc, char** argv) {
 	}
 	UDPConnection udp;
 	udp.SetAddress(ClientAddress);
-	
+
 	TCPConnection tcp; 
 	tcp.SetAddress(ClientAddress);
 	tcp.Connect();
+	// in this place
 	tcp.ReceiveMessage();
 
 
