@@ -18,7 +18,7 @@ public:
 		cout << buffer << '\n';
 	}
 	void SendMessage(string str) {
-		puts(("TCP sendMessage : " + str).c_str());
+		//puts(("TCP sendMessage : " + str).c_str());
 		send(TCP_fd, str.c_str(), str.size(), 0);
 
 	}
@@ -51,7 +51,7 @@ public:
 		}
 	}
 	void SendMessage(string str) {
-		puts(("UDP sendMessage : " + str).c_str());
+		//puts(("UDP sendMessage : " + str).c_str());
 		sendto(UDP_fd, str.c_str(), str.size(), 0, (struct sockaddr*)&udpClientAddress, sizeof(udpClientAddress));
 	}
 	void ReceiveMessage() {

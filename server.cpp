@@ -92,12 +92,12 @@ public:
         serverAddress = sa;
     }
     void SendMessage(string mes){
-        send(udpSockfd, mes.c_str(), mes.size(), 0);
+        sendto(udpSockfd, mes.c_str(), mes.size(), MSG_CONFIRM, (struct sockaddr*)&clientAddress, (socklen_t)sizeof(clientAddress));
     }
     string ReceiveMessage(){
-        int n = recvfrom(udpSockfd, (char*)buffer, 50, MSG_WAITALL, 0, &len);
+        len = sizeof(clientAddress);
+        int n = recvfrom(udpSockfd, (char*)buffer, 50, MSG_WAITALL, (struct sockaddr*)&clientAddress, (socklen_t*)&len);
         buffer[n] = '\n';
-        puts(buffer);
         return buffer;
     }
     void Close(){
@@ -106,8 +106,10 @@ public:
     int udpSockfd = 0;
 private:
     struct sockaddr_in* serverAddress={0};
+    struct sockaddr_in clientAddress = {0};
     char buffer[1024]={0};
-    socklen_t len = 0;
+    int len = 0;
+    //socklen_t len = 0;
 };
 class TCPProtocol{
 public: 
@@ -218,8 +220,6 @@ public:
             if(nready < 0)
                 cout << "select error.\n";
 
-            cout<<nready<<endl;
-
             // master TCP socket
             if (FD_ISSET(masterTCPSocket->tcpSockfd, &rset))  
             {  
@@ -237,7 +237,6 @@ public:
             }
             // UDP
             if (FD_ISSET(uProtocol.udpSockfd, &rset)) {
-                cout<<"udp";
                 string rcvmes = uProtocol.ReceiveMessage();
                 HandleCommand(rcvmes);
             }
@@ -254,26 +253,24 @@ public:
     };
     void HandleCommand(string command, int tcpNum = -1){
         vector<string> cmds = SplitCommand(command);
-        cout<<tcpNum<<endl;
         if(tcpNum == -1){
             if(cmds[0] == "register")
                 Register(cmds);
-            else if(cmds[0] == "game-rule")
+            else if(cmds[0] == "game-rule"){
                 GameRule();
+            }
             else
                 uProtocol.SendMessage("Not a valid command.\n");
         }
         else if(!players[tcpNum].isInGame){
-            if(cmds[0] == "login"){
+            if(cmds[0] == "login")
                 Login(cmds, tcpNum);
-            }
             else if(cmds[0] == "logout")
                 Logout(tcpNum);
             else if(cmds[0] == "start-game")
                 StartGame(cmds, tcpNum);
-            else{
+            else
                 masterTCPSocket->SendMessage("Not a valid command.\n", tcpNum);
-            }
         }
         // In Game
         else{
@@ -288,6 +285,7 @@ public:
 
 private:
     void Register(vector<string> cmds){
+        cout<<"in Register";
         if(cmds.size() != 4) {
 			uProtocol.SendMessage("Usage: register <username> <email> <password>");
 			return;
