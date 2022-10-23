@@ -56,8 +56,10 @@ public:
         }
         for(int i = 0 ; i < 4 ; i++){
             for(int j = 0 ; j < 4 ; j++){
-                if(!visited[i] && !visited[j] && targetNumber[i] == number[j]){
-                    visited[i] = visited[j] = true;
+                if(i == j)
+                    continue;
+                if(!visited[j] && number[i] == targetNumber[j]){
+                    visited[j] = true;
                     Bnumber++;
                 }
             }
