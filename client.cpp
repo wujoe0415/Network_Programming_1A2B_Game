@@ -12,12 +12,22 @@ public:
 		TCP_fd = socket(AF_INET, SOCK_STREAM, 0);
 	}
 	void ReceiveMessage() {
+<<<<<<< HEAD
 		int val = read(TCP_fd, buffer, 1024);
 		buffer[val] = '\0';
 		cout<<buffer<<'\n';
 	}
 	void SendMessage(string str) {
 		// puts(("TCP sendMessage : " + str).c_str());
+=======
+
+		int val = read(TCP_fd, buffer, 1024);
+		buffer[val] = '\0';
+		cout << buffer << '\n';
+	}
+	void SendMessage(string str) {
+		//puts(("TCP sendMessage : " + str).c_str());
+>>>>>>> origin/main
 		send(TCP_fd, str.c_str(), str.size(), 0);
 
 	}
@@ -104,13 +114,20 @@ int main(int argc, char** argv) {
 			}
 			tmp += command[i];
 		}
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 		if(tmp == "exit") {
 			udp.Close();
 			tcp.Close();
 			break;
 		}
+<<<<<<< HEAD
 		else if(tmp == "register" || tmp == "game-rule") 
+=======
+		else if(tmp=="register" || tmp == "game-rule") 
+>>>>>>> origin/main
 		{
 			udp.SendMessage(command);
 			udp.ReceiveMessage();

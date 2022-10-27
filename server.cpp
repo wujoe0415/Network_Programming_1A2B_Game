@@ -115,6 +115,7 @@ public:
         serverAddress = sa;
     }
     void SendMessage(string mes){
+<<<<<<< HEAD
         sendto(udpSockfd, mes.c_str(), mes.size(), 0, (struct sockaddr*)&clientAddress, sizeof(clientAddress));
     }
     string ReceiveMessage(){
@@ -123,6 +124,14 @@ public:
         buffer[n] = '\0';
         //cout<<"udp Receive message"<<endl;
         //cout<<buffer<<endl;
+=======
+        sendto(udpSockfd, mes.c_str(), mes.size(), MSG_CONFIRM, (struct sockaddr*)&clientAddress, (socklen_t)sizeof(clientAddress));
+    }
+    string ReceiveMessage(){
+        len = sizeof(clientAddress);
+        int n = recvfrom(udpSockfd, (char*)buffer, 50, MSG_WAITALL, (struct sockaddr*)&clientAddress, (socklen_t*)&len);
+        buffer[n] = '\0';
+>>>>>>> origin/main
         return buffer;
     }
     void Close(){
@@ -186,9 +195,14 @@ public:
     string ReceiveMessage(int clientSocketfd){
         int val;
         if((val = read(configSockfds[clientSocketfd], buffer, sizeof(buffer)))==0){
+<<<<<<< HEAD
             //cout<<"TCP exit\n";
             close(configSockfds[clientSocketfd]);
             configSockfds[clientSocketfd] = -1;
+=======
+            getpeername(tcpSockfd, (struct sockaddr*)serverAddress, (socklen_t*)(sizeof(*serverAddress)));
+            Close();
+>>>>>>> origin/main
         }
         buffer[val] = '\0';
         return buffer;
